@@ -190,12 +190,10 @@ class nStepSARSAAgent(object):
         
     def select_action(self, state):
         # DONE: Implement policy
-        if np.random.rand() > self.epsilon: 
-            action = np.argmax(self.Q[state])
-        else: 
-            choices = [a for a in range(self.n_actions) if a != np.argmax(self.Q[state])]
-            action = np.random.choice(choices)
-        return action
+        if np.random.rand() < self.epsilon:
+            return np.random.randint(self.n_actions)
+        else:
+            return np.argmax(self.Q[state])
         
     def update(self, states, actions, rewards, t, T, done): # Augment arguments if necessary
         # DONE: Implement n-step SARSA update
@@ -257,18 +255,17 @@ class nStepSARSAAgent(object):
 
                     if done:
                         T = t + 1
+                        print('yay')
                     else:
                         next_action = self.select_action(next_state)
                         actions.append(next_action)
 
-                #update 
-                self.update(states, actions, rewards, t, T, done)
-
-                #checking if you reach terminal state
-                if t - self.n + 1 == T - 1:
+                tau = t - self.n + 1
+                if tau >= 0:
+                    self.update(states, actions, rewards, t, T, done)
+                if tau == T - 1:
                     break
-
                 t += 1
 
-        episode_returns.append(total_reward)
+            episode_returns.append(total_reward)
         return episode_returns
