@@ -255,7 +255,6 @@ class nStepSARSAAgent(object):
 
                     if done:
                         T = t + 1
-                        print('yay')
                     else:
                         next_action = self.select_action(next_state)
                         actions.append(next_action)

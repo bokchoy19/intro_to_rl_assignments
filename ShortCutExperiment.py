@@ -10,6 +10,13 @@ from ShortCutAgents import nStepSARSAAgent
 from ShortCutEnvironment import ShortcutEnvironment
 from ShortCutEnvironment import WindyShortcutEnvironment
 
+'''
+note: the testing has been split into functions to make it much easier to run individually (which is advised as they take a long time to run)
+(as requested, all the graphing functions have been called at the bottom)
+the tables do not auto save as images, since they were graphed in terminal and not actually in python (e.g. plt) 
+'''
+
+
 def run_repetitions(n_reps, n_episodes, agent_type = 'qlearning', alpha = 0.1, n=0): 
     all_rep_results = []
     
@@ -67,7 +74,6 @@ def compare_alpha_values(agent_type):
         smoothed_rewards = smooth_curve(mean_rewards, window=20) 
         plt.plot(smoothed_rewards, label=f'alpha={alpha}')
 
-
     plt.xlabel("Episode")
     plt.ylabel("Cumulative Reward")
 
@@ -81,14 +87,17 @@ def compare_alpha_values(agent_type):
         plt.title(f"N-step SARSA Average Reward for Different Alpha Values (100 repetitions)")
     plt.legend()
     plt.grid(True)
+    plt.savefig(f"compare_alpha_{agent_type}.png")
     plt.show()
+    plt.close()
+
 
 def compare_n_values(): 
-    n_values = [1]
+    n_values = [1, 2, 5, 10]
     plt.figure(figsize=(15, 7))
     for n in n_values:
         print(f"Running experiments for n={n}...")
-        results = run_repetitions(10, 1000, 'n_step_sarsa', n)
+        results = run_repetitions(100, 1000, 'n_step_sarsa', n=n)
         mean_rewards = np.mean(results, axis=0)
         smoothed_rewards = smooth_curve(mean_rewards, window=20) 
         plt.plot(smoothed_rewards, label=f'N={n}')
@@ -98,13 +107,16 @@ def compare_n_values():
     plt.title(f"N-step SARSA Average Reward for Different N Values (100 repetitions)")
     plt.legend()
     plt.grid(True)
+    plt.savefig(f"compare_n_n_step_sarsa.png")
     plt.show()
+    plt.close()
+
 
 def compare_agents(): 
-    agents = ['qlearning', 'sarsa', 'expected_sarsa']
+    agents = ['qlearning', 'sarsa', 'expected_sarsa', 'n_step_sarsa']
     plt.figure(figsize=(15, 7))
     for agent in agents:
-        results = run_repetitions(100, 1000, agent, alpha = 0.5)
+        results = run_repetitions(100, 1000, agent, alpha = 0.5, n=10)
         mean_rewards = np.mean(results, axis=0)
         smoothed_rewards = smooth_curve(mean_rewards, window=20) 
         plt.plot(smoothed_rewards, label=f'Agent={agent}')
@@ -114,45 +126,53 @@ def compare_agents():
     plt.title(f"Average Reward for different agents (100 repetitions)")
     plt.legend()
     plt.grid(True)
+    plt.savefig("compare_agents.png")
     plt.show()
+    plt.close()
+
+
+def compare_agents_table(): 
+    print(f"{'Agent':<20} {'Mean Last 100 Reward':>25}")
+    print("-" * 45)
+
+    for agent in ['qlearning', 'sarsa', 'expected_sarsa', 'n_step_sarsa']: 
+        results = run_repetitions(n_reps = 100, n_episodes = 1000, agent_type = agent, alpha = 0.5, n=10)
+        mean_rewards = np.mean(results, axis=0)
+        final_score = np.mean(mean_rewards[-100:])
+        print(f"{agent:<20} {final_score:>25.2f}")
+
+
+
+
+
 
 
 ## Part 1: Q-learning
 
-# rendering_version()
-
-# results = run_repetitions(n_reps = 100, n_episodes = 1000)
-# mean_rewards = np.mean(results, axis=0)
-# plt.figure(figsize=(10,6))
-# plt.plot(mean_rewards, label="Average Cumulative Reward")
-# plt.xlabel("Episode")
-# plt.ylabel("Cumulative Reward")
-# plt.title(f"Graph of average cumulative rewards of Q-Learning over 100 repetitions, each with 1000 episodes")
-# plt.grid(True)
-# plt.legend()
-# plt.show()
+rendering_version()
 
 # for alpha in [0.01, 0.1, 0.5, 0.9]: 
 #     results = run_repetitions(n_reps = 100, n_episodes = 1000, agent_type = 'qlearning', alpha = alpha)
 #     mean_rewards = np.mean(results, axis=0)
 #     print(f'Mean rewards of last 100 episodes for alpha = {alpha} is {np.mean(mean_rewards[-100:])}')
 
+compare_alpha_values('qlearning')
 
 ## Part 2
 
-# rendering_version('sarsa')
+rendering_version('sarsa')
 
-# compare_alpha_values('sarsa')
+compare_alpha_values('sarsa')
 
 
 
 ## Part 3
-# rendering_version('qlearning', WindyShortcutEnvironment)
-# rendering_version('sarsa', WindyShortcutEnvironment)
+rendering_version('qlearning', WindyShortcutEnvironment)
+rendering_version('sarsa', WindyShortcutEnvironment)
 
 ## Part 4
-# rendering_version('expected_sarsa')
-# compare_alpha_values('expected_sarsa')
+rendering_version('expected_sarsa')
+compare_alpha_values('expected_sarsa')
 
 # for alpha in [0.01, 0.1, 0.5, 0.9]: 
 #     results = run_repetitions(n_reps = 100, n_episodes = 1000, agent_type = 'expected_sarsa', alpha = alpha)
@@ -161,8 +181,8 @@ def compare_agents():
 
 
 ## Part 5
-# rendering_version('n_step_sarsa')
-# compare_n_values()
+rendering_version('n_step_sarsa')
+compare_n_values()
 
 # for n in [1, 2, 5, 10, 25]: 
 #     results = run_repetitions(n_reps = 100, n_episodes = 1000, agent_type = 'n_step_sarsa', n = n)
@@ -171,9 +191,5 @@ def compare_agents():
 
 
 ## Part 6
-# compare_agents()
-
-for agent in ['qlearning', 'sarsa', 'expected_sarsa']: 
-    results = run_repetitions(n_reps = 100, n_episodes = 1000, agent_type = agent, alpha = 0.5)
-    mean_rewards = np.mean(results, axis=0)
-    print(f'Mean rewards of last 100 episodes for agent {agent} is {np.mean(mean_rewards[-100:])}')
+compare_agents()
+compare_agents_table()
