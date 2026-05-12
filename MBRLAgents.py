@@ -17,16 +17,53 @@ class DynaAgent:
         self.n_actions = n_actions
         self.learning_rate = learning_rate
         self.gamma = gamma
-        # TO DO: Initialize relevant elements
+        self.Q_sa = np.zeros((n_states, n_actions))
+        self.n_sas = np.zeros((n_states, n_actions, n_states))
+        self.Rsum_sas = np.zeros((n_states, n_actions, n_states))
         
     def select_action(self, s, epsilon):
-        # TO DO: Change this to e-greedy action selection
-        a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
+        if np.random.rand() < epsilon: #explore
+            a = np.random.randint(self.n_actions)
+        else: #exploit 
+            a = np.argmax(self.Q_sa[s])
         return a
         
     def update(self,s,a,r,done,s_next,n_planning_updates):
-        # TO DO: Add Dyna update
-        pass
+
+        #update Q-table values using real experience
+        if done:
+            target = r
+        else:
+            target = r + self.gamma * np.max(self.Q_sa[s_next])
+        td_error = target - self.Q_sa[s,a]
+        self.Q_sa[s,a] += self.learning_rate * td_error
+
+        #update model using real experience
+        self.n_sas[s,a,s_next] += 1
+        self.Rsum_sas[s,a,s_next] += r
+
+        #update Q-table values using model (planning)
+        for _ in range(n_planning_updates):
+            #sample previously seen state
+            visited_states = np.where(np.sum(self.n_sas, axis=(1,2)) > 0)[0]
+            s_plan = np.random.choice(visited_states)
+
+            #sample previously seen action
+            visited_actions = np.where(np.sum(self.n_sas[s_plan], axis=1) > 0)[0]
+            a_plan = np.random.choice(visited_actions)
+
+            #sample next state from model
+            counts = self.n_sas[s_plan,a_plan]
+            probs = counts / np.sum(counts)
+            s_next_plan = np.random.choice(self.n_states, p=probs)
+
+            #estimated reward
+            r_plan = (self.Rsum_sas[s_plan,a_plan,s_next_plan] / self.n_sas[s_plan,a_plan,s_next_plan])
+
+            #planning Q update
+            target = (r_plan + self.gamma * np.max(self.Q_sa[s_next_plan]))
+            td_error = target - self.Q_sa[s_plan,a_plan]
+            self.Q_sa[s_plan,a_plan] += (self.learning_rate * td_error)
 
     def evaluate(self,eval_env,n_eval_episodes=30, max_episode_length=100):
         returns = []  # list to store the reward per episode
@@ -54,23 +91,64 @@ class PrioritizedSweepingAgent:
         self.gamma = gamma
         self.priority_cutoff = priority_cutoff
         self.queue = PriorityQueue()
-        # TO DO: Initialize relevant elements
+        self.Q_sa = np.zeros((n_states, n_actions))
+        self.n_sas = np.zeros((n_states, n_actions, n_states))
+        self.Rsum_sas = np.zeros((n_states, n_actions, n_states))
         
     def select_action(self, s, epsilon):
-        # TO DO: Change this to e-greedy action selection
-        a = np.random.randint(0,self.n_actions) # Replace this with correct action selection
+        if np.random.rand() < epsilon: #explore
+            a = np.random.randint(self.n_actions)
+        else: #exploit 
+            a = np.argmax(self.Q_sa[s])
         return a
-        
-    def update(self,s,a,r,done,s_next,n_planning_updates):
-        
-        # TO DO: Add Prioritized Sweeping code
-        
-        # Helper code to work with the queue
-        # Put (s,a) on the queue with priority p (needs a minus since the queue pops the smallest priority first)
-        # self.queue.put((-p,(s,a))) 
-        # Retrieve the top (s,a) from the queue
-        # _,(s,a) = self.queue.get() # get the top (s,a) for the queue
-        pass
+    def update(self, s, a, r, done, s_next, n_planning_updates):
+        #update Q-table values using real experience 
+        if done:
+            target = r
+        else:
+            target = r + self.gamma * np.max(self.Q_sa[s_next])
+
+        td_error = target - self.Q_sa[s,a]
+        self.Q_sa[s,a] += self.learning_rate * td_error
+
+        #update model using real experience
+        self.n_sas[s,a,s_next] += 1
+        self.Rsum_sas[s,a,s_next] += r
+
+        #add to priority queue
+        priority = abs(td_error)
+        if priority > self.priority_cutoff:
+            self.queue.put((-priority, (s,a)))
+
+        #planning Q update
+        for _ in range(n_planning_updates):
+
+            if self.queue.empty():
+                break
+
+            _, (s_plan, a_plan) = self.queue.get()
+
+            counts = self.n_sas[s_plan, a_plan]
+            probs = counts / np.sum(counts)
+            s_next_plan = np.random.choice(self.n_states, p=probs)
+
+            r_plan = self.Rsum_sas[s_plan,a_plan,s_next_plan] / self.n_sas[s_plan,a_plan,s_next_plan]
+            target_plan = r_plan + self.gamma * np.max(self.Q_sa[s_next_plan])
+            td_error_plan = target_plan - self.Q_sa[s_plan,a_plan]
+            self.Q_sa[s_plan,a_plan] += self.learning_rate * td_error_plan
+
+            #working backwards
+            #s_bar and a_bar are state-action pairs that can lead to current state
+            # r_bar is E[reward] of (s_bar, a_bar, s) 
+            for s_bar in range(self.n_states):
+                for a_bar in range(self.n_actions):
+                    if self.n_sas[s_bar, a_bar, s_plan] > 0:
+                        r_bar = self.Rsum_sas[s_bar,a_bar,s_plan] / self.n_sas[s_bar,a_bar,s_plan]
+                        p_bar = abs(r_bar + self.gamma * np.max(self.Q_sa[s_plan]) - self.Q_sa[s_bar,a_bar])
+
+                        if p_bar > self.priority_cutoff:
+                            self.queue.put((-p_bar, (s_bar, a_bar)))
+
 
     def evaluate(self,eval_env,n_eval_episodes=30, max_episode_length=100):
         returns = []  # list to store the reward per episode
