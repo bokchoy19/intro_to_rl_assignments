@@ -101,6 +101,7 @@ class PrioritizedSweepingAgent:
         else: #exploit 
             a = np.argmax(self.Q_sa[s])
         return a
+    
     def update(self, s, a, r, done, s_next, n_planning_updates):
         #update Q-table values using real experience 
         if done:
